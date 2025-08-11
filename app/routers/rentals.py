@@ -12,6 +12,7 @@ from ..database import get_db
 from ..models.rentals import RentalOrder, RentalItem
 from ..models.catalog import Product
 from ..models.inventory import InventoryItem
+from ..utils.auth import require_roles
 
 
 router = APIRouter(prefix="/rentals", tags=["rentals"])
@@ -125,7 +126,7 @@ def get_item_line_total(db: Session, item: RentalItem) -> float:
              status_code=status.HTTP_201_CREATED,
              summary="Create a new rental order",
              description="Create a new rental order with booked status. The order starts with zero total amount. End timestamp must be after start timestamp.")
-async def create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db)):
+async def create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db), _: None = Depends(require_roles("Admin", "Seller"))):
     """Create a new rental order"""
     
     # Validation: end_ts > start_ts
@@ -179,7 +180,8 @@ async def create_order(order_data: CreateOrderRequest, db: Session = Depends(get
 async def add_item_to_order(
     rental_id: int, 
     item_data: AddItemRequest, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller"))
 ):
     """Add item to rental order"""
     

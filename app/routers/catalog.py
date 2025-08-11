@@ -16,6 +16,7 @@ from ..schemas.products import (
     ProductAssetRead,
 )
 from ..schemas.common import PricingUnit
+from ..utils.auth import require_roles
 
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
@@ -30,7 +31,11 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
     summary="Create category",
     description="Create a new category. If parent_id is provided, it must reference an existing category.",
 )
-def create_category(payload: CategoryCreate, db: Session = Depends(get_db)) -> CategoryRead:
+def create_category(
+    payload: CategoryCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> CategoryRead:
     if payload.parent_id is not None:
         parent = db.query(CategoryModel).get(payload.parent_id)
         if parent is None:
@@ -72,7 +77,12 @@ def get_category(category_id: int, db: Session = Depends(get_db)) -> CategoryRea
     response_model=CategoryRead,
     summary="Update category",
 )
-def update_category(category_id: int, payload: CategoryCreate, db: Session = Depends(get_db)) -> CategoryRead:
+def update_category(
+    category_id: int,
+    payload: CategoryCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> CategoryRead:
     category = db.query(CategoryModel).get(category_id)
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -96,7 +106,11 @@ def update_category(category_id: int, payload: CategoryCreate, db: Session = Dep
     description="Delete a category that has no products referencing it. Returns 409 if in-use.",
     response_class=Response,
 )
-def delete_category(category_id: int, db: Session = Depends(get_db)) -> Response:
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> Response:
     category = db.query(CategoryModel).get(category_id)
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -122,7 +136,11 @@ ALLOWED_UNITS = {unit.value for unit in PricingUnit}
     summary="Create product",
     description="Create a product under a category. pricing_unit must be one of hour, day, week, month.",
 )
-def create_product(payload: ProductCreate, db: Session = Depends(get_db)) -> ProductRead:
+def create_product(
+    payload: ProductCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> ProductRead:
     # Validate category
     if db.query(CategoryModel).get(payload.category_id) is None:
         raise HTTPException(status_code=400, detail="category_id not found")
@@ -188,7 +206,12 @@ def get_product(product_id: int, db: Session = Depends(get_db)) -> ProductRead:
     response_model=ProductRead,
     summary="Update product",
 )
-def update_product(product_id: int, payload: ProductCreate, db: Session = Depends(get_db)) -> ProductRead:
+def update_product(
+    product_id: int,
+    payload: ProductCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> ProductRead:
     product = db.query(ProductModel).get(product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -222,7 +245,11 @@ def update_product(product_id: int, payload: ProductCreate, db: Session = Depend
     description="Delete a product that has no inventory items referencing it. Returns 409 if in-use.",
     response_class=Response,
 )
-def delete_product(product_id: int, db: Session = Depends(get_db)) -> Response:
+def delete_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> Response:
     product = db.query(ProductModel).get(product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -247,7 +274,12 @@ ALLOWED_ASSETS = {"image", "3d", "ar"}
     status_code=status.HTTP_201_CREATED,
     summary="Add product asset",
 )
-def create_asset(product_id: int, payload: ProductAssetCreate, db: Session = Depends(get_db)) -> ProductAssetRead:
+def create_asset(
+    product_id: int,
+    payload: ProductAssetCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> ProductAssetRead:
     product = db.query(ProductModel).get(product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -288,7 +320,12 @@ def list_assets(product_id: int, db: Session = Depends(get_db)) -> List[ProductA
     summary="Delete product asset",
     response_class=Response,
 )
-def delete_asset(product_id: int, asset_id: int, db: Session = Depends(get_db)) -> Response:
+def delete_asset(
+    product_id: int,
+    asset_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> Response:
     asset = db.query(ProductAssetModel).get(asset_id)
     if asset is None or asset.product_id != product_id:
         raise HTTPException(status_code=404, detail="Asset not found for this product")

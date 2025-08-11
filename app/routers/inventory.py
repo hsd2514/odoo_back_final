@@ -10,6 +10,7 @@ from ..schemas.inventory import (
     InventoryItemRead,
 )
 from ..schemas.common import InventoryStatus
+from ..utils.auth import require_roles
 
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
     status_code=status.HTTP_201_CREATED,
     summary="Create inventory item",
 )
-def create_item(payload: InventoryItemCreate, db: Session = Depends(get_db)):
+def create_item(payload: InventoryItemCreate, db: Session = Depends(get_db), _: None = Depends(require_roles("Admin", "Seller"))):
     item = InventoryItemModel(
         product_id=payload.product_id,
         sku=payload.sku,
@@ -75,17 +76,24 @@ def update_status(
     item_id: int,
     new_status: InventoryStatus = Query(..., description="New status"),
     db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
 ):
     item = db.query(InventoryItemModel).get(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    valid = {s.value for s in InventoryStatus}
-    if new_status.value not in valid:
-        raise HTTPException(status_code=400, detail="Invalid status")
+    # Enforce transitions: available -> reserved -> rented; rented -> available
+    current = item.status
+    target = new_status.value
+    allowed = (
+        (current == "available" and target in {"reserved"}),
+        (current == "reserved" and target in {"rented", "available"}),
+        (current == "rented" and target in {"available"}),
+    )
+    if not any(allowed):
+        raise HTTPException(status_code=409, detail=f"Transition {current} -> {target} is not allowed")
 
-    # basic transition logic: allow any for now; customize as needed
-    item.status = new_status.value
+    item.status = target
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -97,7 +105,7 @@ def update_status(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete inventory item",
 )
-def delete_item(item_id: int, db: Session = Depends(get_db)):
+def delete_item(item_id: int, db: Session = Depends(get_db), _: None = Depends(require_roles("Admin", "Seller"))):
     item = db.query(InventoryItemModel).get(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
