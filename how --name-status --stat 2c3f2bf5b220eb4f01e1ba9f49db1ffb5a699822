@@ -1,0 +1,26 @@
+[33mcommit 2c3f2bf5b220eb4f01e1ba9f49db1ffb5a699822[m[33m ([m[1;31morigin/main[m[33m)[m
+Author: Aryan0550p <aryandesaikop@gmail.com>
+Date:   Mon Aug 11 12:50:15 2025 +0530
+
+    feat: implement authentication system with JWT and user management
+    
+    - Add FastAPI-based authentication routes (register/login)
+    - Implement JWT token generation and validation
+    - Create user models with SQLAlchemy
+    - Add Pydantic schemas for request/response validation
+    - Setup database configuration with PostgreSQL
+    - Add comprehensive testing endpoints
+    - Include password hashing with bcrypt
+    - Create virtual environment activation script
+    - Add all required dependencies in requirements.txt
+
+A	activate_env.bat
+M	app/models/rentals.py
+M	app/models/user.py
+M	app/routers/users.py
+M	app/schemas/user.py
+A	main.py
+A	requirements.txt
+A	test_auth.py
+A	test_auth_simple.py
+A	test_endpoints.py

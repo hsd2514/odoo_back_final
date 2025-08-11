@@ -8,6 +8,15 @@ from alembic import context
 # Import application settings and metadata
 from app.config import get_settings
 from app.database import Base
+# Import all model modules so that Base.metadata is populated
+from app.models import user as _m_user  # noqa: F401
+from app.models import catalog as _m_catalog  # noqa: F401
+from app.models import subscriptions as _m_subscriptions  # noqa: F401
+from app.models import promotions as _m_promotions  # noqa: F401
+from app.models import inventory as _m_inventory  # noqa: F401
+from app.models import rentals as _m_rentals  # noqa: F401
+from app.models import billing as _m_billing  # noqa: F401
+from app.models import loyalty as _m_loyalty  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
