@@ -2,12 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-<<<<<<< HEAD
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
-from sqlalchemy.dialects.postgresql import JSONB
-=======
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, JSON
->>>>>>> origin/feature/fix-authentication-system
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
@@ -60,8 +55,7 @@ class Event(Base):
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.user_id"))
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.product_id"))
-    # 'metadata' is reserved in SQLAlchemy declarative models. Use attribute 'meta' and map to column 'metadata'.
-    meta: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    metadata: Mapped[dict | None] = mapped_column(nullable=True)
 
 
 class Notification(Base):
@@ -70,7 +64,7 @@ class Notification(Base):
     notification_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
-    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payload: Mapped[dict | None] = mapped_column(nullable=True)
     scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str | None] = mapped_column(String(20))
