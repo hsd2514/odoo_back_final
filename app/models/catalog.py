@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, LargeBinary, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
@@ -34,8 +34,16 @@ class ProductAsset(Base):
     asset_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.product_id"), nullable=False)
     asset_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    uri: Mapped[str] = mapped_column(String(1024), nullable=False)
+    # Either uri (remote storage) or inline data (bytea) can be used
+    uri: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     drm_protected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Inline storage (optional)
+    filename: Mapped[str | None] = mapped_column(String(255))
+    content_type: Mapped[str | None] = mapped_column(String(100))
+    size: Mapped[int | None] = mapped_column(BigInteger)
+    sha256: Mapped[str | None] = mapped_column(String(64), unique=False, index=True)
+    data: Mapped[bytes | None] = mapped_column(LargeBinary)
 
     product: Mapped[Product] = relationship("Product", back_populates="assets")
 

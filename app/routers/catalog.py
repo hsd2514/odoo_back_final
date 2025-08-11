@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response, UploadFile, File
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -16,6 +16,7 @@ from ..schemas.products import (
     ProductAssetRead,
 )
 from ..schemas.common import PricingUnit
+import hashlib
 from ..utils.auth import require_roles
 
 
@@ -333,4 +334,41 @@ def delete_asset(
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+
+# --- Inline upload (bytea) ---
+@router.post(
+    "/products/{product_id}/assets/upload",
+    response_model=ProductAssetRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload product image/asset (stored inline)",
+)
+def upload_asset(
+    product_id: int,
+    file: UploadFile = File(...),
+    asset_type: str = "image",
+    drm_protected: bool = False,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+) -> ProductAssetRead:
+    product = db.query(ProductModel).get(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if asset_type not in ALLOWED_ASSETS:
+        raise HTTPException(status_code=400, detail="asset_type must be one of 'image','3d','ar'")
+    data = file.file.read()
+    sha = hashlib.sha256(data).hexdigest()
+    asset = ProductAssetModel(
+        product_id=product_id,
+        asset_type=asset_type,
+        uri=None,
+        drm_protected=bool(drm_protected),
+        filename=file.filename,
+        content_type=file.content_type,
+        size=len(data),
+        sha256=sha,
+        data=data,
+    )
+    db.add(asset)
+    db.commit(); db.refresh(asset)
+    return asset  # type: ignore[return-value]
 

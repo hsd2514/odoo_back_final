@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import Base, engine
@@ -13,6 +14,15 @@ from .routers import roles
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name)
+
+    # CORS (frontend integration)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # set to specific FE origin in production
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Import models to ensure they're registered with SQLAlchemy
     from .models import user, catalog as catalog_models, rentals as rental_models
