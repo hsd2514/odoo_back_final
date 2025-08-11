@@ -8,7 +8,7 @@ from .common import BaseSchema
 class EventBase(BaseSchema):
     occurred_at: datetime
     event_type: str
-    user_id: int | None = None
+    user_id: int | None = None 
     product_id: int | None = None
     metadata: dict | None = None
 

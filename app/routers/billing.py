@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.billing import Invoice, Payment
 from ..models.rentals import RentalOrder
-from ..utils.auth import require_roles
+from ..utils.auth import require_roles, get_current_user, user_has_any_role
 
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -36,16 +36,19 @@ class PaymentCreate(BaseModel):
 
 
 @router.post("/payments", response_model=dict, status_code=status.HTTP_201_CREATED)
-def record_payment(payload: PaymentCreate, db: Session = Depends(get_db)):
+def record_payment(payload: PaymentCreate, db: Session = Depends(get_db), current=Depends(get_current_user)):
     inv = db.query(Invoice).get(payload.invoice_id) if payload.invoice_id else db.query(Invoice).filter(Invoice.rental_id == payload.rental_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    # Authorization: order owner or Admin/Seller
+    order = db.query(RentalOrder).get(inv.rental_id)
+    if not (order and (order.customer_id == current.user_id or user_has_any_role(db, current.user_id, ["Admin", "Seller"]))):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     inv.amount_paid = float(inv.amount_paid or 0) + payload.amount
     if inv.amount_paid >= inv.amount_due:
         inv.status = "paid"
-        order = db.query(RentalOrder).get(inv.rental_id)
         if order:
-            order.status = order.status or "completed"
+            order.status = "completed"
     db.add(Payment(rental_id=payload.rental_id, invoice_id=inv.invoice_id, gateway=payload.gateway, amount=payload.amount))
     db.commit()
     return {"paid": True, "invoice_status": inv.status}

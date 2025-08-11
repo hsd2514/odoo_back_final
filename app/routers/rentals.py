@@ -12,7 +12,7 @@ from ..database import get_db
 from ..models.rentals import RentalOrder, RentalItem
 from ..models.catalog import Product
 from ..models.inventory import InventoryItem
-from ..utils.auth import require_roles
+from ..utils.auth import require_roles, get_current_user, user_has_any_role
 
 
 router = APIRouter(prefix="/rentals", tags=["rentals"])
@@ -126,7 +126,7 @@ def get_item_line_total(db: Session, item: RentalItem) -> float:
              status_code=status.HTTP_201_CREATED,
              summary="Create a new rental order",
              description="Create a new rental order with booked status. The order starts with zero total amount. End timestamp must be after start timestamp.")
-async def create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db), _: None = Depends(require_roles("Admin", "Seller"))):
+async def create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db), current=Depends(get_current_user)):
     """Create a new rental order"""
     
     # Validation: end_ts > start_ts
@@ -136,9 +136,13 @@ async def create_order(order_data: CreateOrderRequest, db: Session = Depends(get
             detail="End timestamp must be after start timestamp"
         )
     
+    # Only the logged-in user can create an order (as customer)
+    if order_data.customer_id and order_data.customer_id != current.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot create order for another user")
+
     # Create order with status="booked" and total_amount=0
     new_order = RentalOrder(
-        customer_id=order_data.customer_id,
+        customer_id=current.user_id,
         seller_id=order_data.seller_id,
         status="booked",
         total_amount=0.0,
@@ -181,7 +185,7 @@ async def add_item_to_order(
     rental_id: int, 
     item_data: AddItemRequest, 
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles("Admin", "Seller"))
+    current=Depends(get_current_user)
 ):
     """Add item to rental order"""
     
@@ -193,6 +197,10 @@ async def add_item_to_order(
             detail=f"Rental order with ID {rental_id} not found"
         )
     
+    # Authorization: owner or Admin/Seller
+    if not (order.customer_id == current.user_id or user_has_any_role(db, current.user_id, ["Admin", "Seller"])):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
     # Validate order status
     if order.status not in ["booked", "active"]:
         raise HTTPException(
