@@ -62,6 +62,52 @@ class RentalOrderResponse(BaseModel):
         from_attributes = True
 
 
+# -- New: list orders for seller dashboard --
+@router.get(
+    "/orders",
+    summary="List rental orders",
+    description="Filter by status/invoice status/search; paging optional",
+)
+async def list_orders(
+    status: str | None = None,
+    invoice_status: str | None = None,
+    q: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+):
+    query = db.query(RentalOrder)
+    if status:
+        query = query.filter(RentalOrder.status == status)
+    if q:
+        # naive search on customer/seller ids or id
+        if q.isdigit():
+            query = query.filter(RentalOrder.rental_id == int(q))
+    total = query.count()
+    items = query.order_by(RentalOrder.rental_id.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {"items": items, "total": total, "page": page, "limit": limit}
+
+
+# -- New: patch order status --
+class OrderStatusPatch(BaseModel):
+    status: str
+
+
+@router.patch("/orders/{rental_id}/status", summary="Update rental order status")
+async def patch_status(
+    rental_id: int,
+    payload: OrderStatusPatch,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+):
+    order = db.query(RentalOrder).filter(RentalOrder.rental_id == rental_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status = payload.status
+    db.commit()
+    return {"updated": True}
+
 # Helper Functions
 def compute_duration_units(start_ts: datetime, end_ts: datetime, pricing_unit: str) -> int:
     """

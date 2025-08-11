@@ -7,6 +7,7 @@ from .config import get_settings
 from .database import Base, engine
 from .routers import users, catalog, rentals
 from .routers import schedules, handover_qr, billing, promos_loyalty, notifications_availability
+from .routers import reporting
 from .routers import inventory
 from .routers import roles
 
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(billing.router)
     app.include_router(promos_loyalty.router)
     app.include_router(notifications_availability.router)
+    app.include_router(reporting.router)
     app.include_router(inventory.router)
     app.include_router(roles.router)
     return app

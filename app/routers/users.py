@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..schemas.user import UserCreate, UserLogin, UserRead, UserResponse
+from ..utils.auth import get_current_user
+from ..models.user import Role, UserRole
 from ..services.user_service import create_user, get_user_by_email, verify_password
 from ..utils.jwt import create_access_token
 
@@ -152,6 +154,27 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
         token_type="bearer"
     )
 
+
+
+@router.get(
+    "/me",
+    summary="Current user profile with roles",
+    description="Returns the authenticated user's profile and assigned roles",
+)
+async def me(current=Depends(get_current_user), db: Session = Depends(get_db)):
+    role_rows = (
+        db.query(Role.name)
+        .join(UserRole, Role.role_id == UserRole.role_id)
+        .filter(UserRole.user_id == current.user_id)
+        .all()
+    )
+    roles = [name for (name,) in role_rows]
+    return {
+        "user_id": current.user_id,
+        "email": current.email,
+        "full_name": current.full_name,
+        "roles": roles,
+    }
 
 
 
