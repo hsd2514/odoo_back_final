@@ -5,7 +5,7 @@ Test the authentication endpoints
 import requests
 import json
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8001"
 
 def test_registration():
     """Test user registration"""
