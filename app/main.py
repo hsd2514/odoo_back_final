@@ -9,6 +9,7 @@ from .routers import users, catalog, rentals
 from .routers import schedules, handover_qr, billing, promos_loyalty, notifications_availability
 from .routers import inventory
 from .routers import roles
+from .routers import stripe_payments
 
 
 def create_app() -> FastAPI:
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications_availability.router)
     app.include_router(inventory.router)
     app.include_router(roles.router)
+    app.include_router(stripe_payments.router)
     return app
 
 
