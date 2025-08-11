@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
+<<<<<<< HEAD
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
+=======
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, JSON
+>>>>>>> origin/feature/fix-authentication-system
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
