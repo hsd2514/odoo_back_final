@@ -16,6 +16,9 @@ from .routers import stripe_payments
 from .routers import peak_performance  # Advanced performance endpoints
 from .routers import redis_admin  # Redis administration dashboard
 
+# Global image cache manager
+image_cache_manager = None
+
 # Advanced middleware imports
 from .middleware.advanced_performance import (
     CompressionMiddleware, ResponseOptimizationMiddleware,
@@ -166,6 +169,19 @@ def create_app() -> FastAPI:
     app.include_router(stripe_payments.router)
     app.include_router(peak_performance.router)  # Advanced performance endpoints
     app.include_router(redis_admin.router)  # Redis administration dashboard
+    
+    # Setup static file serving with image caching
+    try:
+        from .utils.image_cache import setup_static_files
+        global image_cache_manager
+        image_cache_manager = setup_static_files(app, "static")
+        
+        # Add image serving router
+        from .routers import images
+        app.include_router(images.router)
+        logger.info("✅ Image caching and static file serving configured")
+    except Exception as e:
+        logger.warning(f"⚠️ Image caching setup failed: {e}")
     
     # Add monitoring router if available
     try:
