@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -94,8 +94,9 @@ def update_category(category_id: int, payload: CategoryCreate, db: Session = Dep
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete category",
     description="Delete a category that has no products referencing it. Returns 409 if in-use.",
+    response_class=Response,
 )
-def delete_category(category_id: int, db: Session = Depends(get_db)) -> None:
+def delete_category(category_id: int, db: Session = Depends(get_db)) -> Response:
     category = db.query(CategoryModel).get(category_id)
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -106,7 +107,7 @@ def delete_category(category_id: int, db: Session = Depends(get_db)) -> None:
 
     db.delete(category)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ---------- Products ----------
@@ -219,8 +220,9 @@ def update_product(product_id: int, payload: ProductCreate, db: Session = Depend
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete product",
     description="Delete a product that has no inventory items referencing it. Returns 409 if in-use.",
+    response_class=Response,
 )
-def delete_product(product_id: int, db: Session = Depends(get_db)) -> None:
+def delete_product(product_id: int, db: Session = Depends(get_db)) -> Response:
     product = db.query(ProductModel).get(product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -231,7 +233,7 @@ def delete_product(product_id: int, db: Session = Depends(get_db)) -> None:
 
     db.delete(product)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ---------- Product Assets ----------
@@ -284,13 +286,14 @@ def list_assets(product_id: int, db: Session = Depends(get_db)) -> List[ProductA
     "/products/{product_id}/assets/{asset_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete product asset",
+    response_class=Response,
 )
-def delete_asset(product_id: int, asset_id: int, db: Session = Depends(get_db)) -> None:
+def delete_asset(product_id: int, asset_id: int, db: Session = Depends(get_db)) -> Response:
     asset = db.query(ProductAssetModel).get(asset_id)
     if asset is None or asset.product_id != product_id:
         raise HTTPException(status_code=404, detail="Asset not found for this product")
     db.delete(asset)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
