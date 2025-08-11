@@ -7,6 +7,7 @@ from .config import get_settings
 from .database import Base, engine
 from .routers import users
 from .routers import inventory
+from .routers import catalog
 
 
 def create_app() -> FastAPI:
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
 
     app.include_router(users.router)
     app.include_router(inventory.router)
+    app.include_router(catalog.router)
     return app
 
 
