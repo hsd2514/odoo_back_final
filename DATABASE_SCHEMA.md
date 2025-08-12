@@ -4,7 +4,7 @@
 
 This diagram shows the complete database schema for the High-Performance Rental Management System.
 
-![Database Schema](database_schema_diagram.png)
+![Database Schema](./bitw_schema_refined.png)
 
 ## Key Database Tables
 

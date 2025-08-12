@@ -2,7 +2,9 @@
 
 ## Entity Relationship Overview
 
-Based on the database schema diagram, here's the complete analysis of the rental management system:
+![Database Schema Diagram](./bitw_schema_refined.png)
+
+Based on the database schema diagram above, here's the complete analysis of the rental management system:
 
 ## 🏗️ **Core Database Architecture**
 
