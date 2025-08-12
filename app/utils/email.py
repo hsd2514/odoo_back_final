@@ -173,4 +173,10 @@ class EmailService:
 
 
 # Singleton instance
+# Create email service instance
+# For development, you can use mock_email_service instead
 email_service = EmailService()
+
+# Uncomment the line below to use mock email service for development
+# from .email_mock import mock_email_service
+# email_service = mock_email_service

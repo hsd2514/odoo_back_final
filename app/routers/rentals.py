@@ -62,6 +62,66 @@ class RentalOrderResponse(BaseModel):
         from_attributes = True
 
 
+# -- New: list orders for seller dashboard --
+@router.get(
+    "/orders",
+    summary="List rental orders",
+    description="Filter by status/invoice status/search; paging optional",
+)
+async def list_orders(
+    status: str | None = None,
+    invoice_status: str | None = None,
+    q: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+    customer_id: int | None = None,
+    seller_id: int | None = None,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
+    # Authorization rules:
+    # - Admin/Seller can view all
+    # - Otherwise, only allow when requesting own customer orders
+    if not user_has_any_role(db, current.user_id, ["Admin", "Seller"]):
+        if customer_id is None or int(customer_id) != int(current.user_id):
+            # deny access for non-admin/seller when not querying own orders
+            from fastapi import HTTPException, status as http_status
+            raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    query = db.query(RentalOrder)
+    if status:
+        query = query.filter(RentalOrder.status == status)
+    if customer_id is not None:
+        query = query.filter(RentalOrder.customer_id == customer_id)
+    if seller_id is not None:
+        query = query.filter(RentalOrder.seller_id == seller_id)
+    if q:
+        # naive search on customer/seller ids or id
+        if q.isdigit():
+            query = query.filter(RentalOrder.rental_id == int(q))
+    total = query.count()
+    items = query.order_by(RentalOrder.rental_id.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {"items": items, "total": total, "page": page, "limit": limit}
+
+
+# -- New: patch order status --
+class OrderStatusPatch(BaseModel):
+    status: str
+
+
+@router.patch("/orders/{rental_id}/status", summary="Update rental order status")
+async def patch_status(
+    rental_id: int,
+    payload: OrderStatusPatch,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_roles("Admin", "Seller")),
+):
+    order = db.query(RentalOrder).filter(RentalOrder.rental_id == rental_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status = payload.status
+    db.commit()
+    return {"updated": True}
+
 # Helper Functions
 def compute_duration_units(start_ts: datetime, end_ts: datetime, pricing_unit: str) -> int:
     """

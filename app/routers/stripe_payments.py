@@ -196,6 +196,10 @@ async def confirm_payment(
         payment_intent = await stripe_service.confirm_payment_intent(
             confirmation.payment_intent_id
         )
+
+        # Persist success to DB even when webhooks are not configured
+        if getattr(payment_intent, 'status', None) == 'succeeded':
+            await stripe_service._handle_payment_success(payment_intent, db)  # type: ignore[attr-defined]
         
         return {
             "message": "Payment confirmed successfully",

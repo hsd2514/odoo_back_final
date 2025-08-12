@@ -19,12 +19,28 @@ class InvoiceCreate(BaseModel):
 
 
 @router.post("/invoices", response_model=dict, status_code=status.HTTP_201_CREATED)
-def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db), _: None = Depends(require_roles("Admin", "Seller"))):
+def create_invoice(
+    payload: InvoiceCreate,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
     order = db.query(RentalOrder).get(payload.rental_id)
     if not order:
         raise HTTPException(status_code=404, detail="Rental order not found")
-    inv = Invoice(rental_id=payload.rental_id, amount_due=payload.amount_due or order.total_amount, amount_paid=0, status="unpaid")
-    db.add(inv); db.commit(); db.refresh(inv)
+
+    # Authorization: order owner or Admin/Seller
+    if not (order.customer_id == current.user_id or user_has_any_role(db, current.user_id, ["Admin", "Seller"])):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    inv = Invoice(
+        rental_id=payload.rental_id,
+        amount_due=payload.amount_due or order.total_amount,
+        amount_paid=0,
+        status="unpaid",
+    )
+    db.add(inv)
+    db.commit()
+    db.refresh(inv)
     return {"invoice_id": inv.invoice_id}
 
 

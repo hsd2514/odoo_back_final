@@ -239,14 +239,13 @@ class StripeService:
         
         db.add(payment)
         
-        # Update rental order status if needed
+        # Update rental order status to align with seller console filters
         rental_order = db.query(RentalOrder).filter(
             RentalOrder.rental_id == int(rental_id)
         ).first()
-        
-        if rental_order and rental_order.status == 'pending_payment':
-            rental_order.status = 'confirmed'
-        
+        if rental_order:
+            # After successful payment, mark reserved (awaiting pickup)
+            rental_order.status = 'reserved'
         db.commit()
     
     async def _handle_payment_failed(self, payment_intent: Dict[str, Any], db: Session):

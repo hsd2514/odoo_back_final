@@ -10,10 +10,12 @@ from .config import get_settings
 from .database_optimized import Base, engine, SessionLocal  # Use optimized database
 from .routers import users, catalog, rentals
 from .routers import schedules, handover_qr, billing, promos_loyalty, notifications_availability
+from .routers import reporting
 from .routers import inventory
 from .routers import roles
-from .routers import stripe_payments
+from .routers import stripe_payments, auth as auth_router
 from .routers import peak_performance  # Advanced performance endpoints
+from .routers import test_email  # Test email endpoints
 
 # Global image cache manager
 image_cache_manager = None
@@ -120,6 +122,7 @@ def create_app() -> FastAPI:
 
     # Register routers
     app.include_router(users.router)
+    app.include_router(auth_router.router)
     app.include_router(catalog.router)
     app.include_router(rentals.router)
     app.include_router(schedules.router)
@@ -127,10 +130,12 @@ def create_app() -> FastAPI:
     app.include_router(billing.router)
     app.include_router(promos_loyalty.router)
     app.include_router(notifications_availability.router)
+    app.include_router(reporting.router)
     app.include_router(inventory.router)
     app.include_router(roles.router)
     app.include_router(stripe_payments.router)
     app.include_router(peak_performance.router)  # Advanced performance endpoints
+    app.include_router(test_email.router)  # Test email endpoints
     
     # Setup static file serving with image caching
     try:

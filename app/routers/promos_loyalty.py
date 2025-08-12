@@ -38,6 +38,109 @@ def list_promos(db: Session = Depends(get_db)):
     return [{"promo_id": p.promo_id, "code": p.code, "value": float(p.value)} for p in promos]
 
 
+class PromoApply(BaseModel):
+    code: str
+    cart_total: float
+
+
+@router.post("/promotions/apply", response_model=dict)
+def apply_promo(payload: PromoApply, db: Session = Depends(get_db)):
+    """Apply a promotion code to a cart total"""
+    from datetime import date
+    
+    # Find the promotion
+    promo = db.query(Promotion).filter(Promotion.code == payload.code).first()
+    if not promo:
+        raise HTTPException(status_code=404, detail="Promotion code not found")
+    
+    # Check if promotion is valid (within date range)
+    today = date.today()
+    if today < promo.valid_from or today > promo.valid_to:
+        raise HTTPException(status_code=400, detail="Promotion code has expired or is not yet valid")
+    
+    # Calculate discount - ensure proper type conversion
+    if promo.discount_type == "percentage":
+        # Convert Decimal to float for calculation
+        promo_value = float(promo.value)
+        cart_total = float(payload.cart_total)
+        discount_amount = cart_total * (promo_value / 100)
+    elif promo.discount_type == "fixed":
+        # Convert Decimal to float for calculation
+        discount_amount = float(promo.value)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid discount type")
+    
+    # Ensure discount doesn't exceed cart total
+    cart_total = float(payload.cart_total)
+    discount_amount = min(discount_amount, cart_total)
+    
+    final_total = cart_total - discount_amount
+    
+    return {
+        "promo_id": promo.promo_id,
+        "code": promo.code,
+        "discount_type": promo.discount_type,
+        "discount_value": float(promo.value),
+        "cart_total": float(payload.cart_total),
+        "discount_amount": round(discount_amount, 2),
+        "final_total": round(final_total, 2),
+        "valid": True
+    }
+
+
+@router.post("/promotions/test-setup", response_model=dict)
+def setup_test_promotions(db: Session = Depends(get_db)):
+    """Setup test promotion codes for development"""
+    from datetime import date, timedelta
+    
+    # Check if test promotions already exist
+    existing = db.query(Promotion).filter(Promotion.code.in_(["WELCOME10", "SAVE20", "FIXED50"])).all()
+    if existing:
+        return {"message": "Test promotions already exist", "count": len(existing)}
+    
+    # Create test promotions
+    today = date.today()
+    test_promos = [
+        {
+            "code": "WELCOME10",
+            "discount_type": "percentage",
+            "value": 10.0,
+            "valid_from": today,
+            "valid_to": today + timedelta(days=365)
+        },
+        {
+            "code": "SAVE20",
+            "discount_type": "percentage", 
+            "value": 20.0,
+            "valid_from": today,
+            "valid_to": today + timedelta(days=365)
+        },
+        {
+            "code": "FIXED50",
+            "discount_type": "fixed",
+            "value": 50.0,
+            "valid_from": today,
+            "valid_to": today + timedelta(days=365)
+        }
+    ]
+    
+    for promo_data in test_promos:
+        promo = Promotion(**promo_data)
+        db.add(promo)
+    
+    db.commit()
+    
+    return {
+        "message": "Test promotions created successfully",
+        "promotions": ["WELCOME10", "SAVE20", "FIXED50"],
+        "details": {
+            "WELCOME10": "10% off",
+            "SAVE20": "20% off", 
+            "FIXED50": "₹50 off"
+        }
+    }
+
+
 class LoyaltyCreate(BaseModel):
     user_id: int
 
