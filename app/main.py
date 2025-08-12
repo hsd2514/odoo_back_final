@@ -14,7 +14,6 @@ from .routers import inventory
 from .routers import roles
 from .routers import stripe_payments
 from .routers import peak_performance  # Advanced performance endpoints
-from .routers import redis_admin  # Redis administration dashboard
 
 # Global image cache manager
 image_cache_manager = None
@@ -67,42 +66,6 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Advanced background tasks configured")
     except Exception as e:
         logger.warning(f"⚠️ Advanced background tasks setup failed: {e}")
-    
-    # Warm cache
-    try:
-        from .utils.redis_cache import warm_cache
-        await warm_cache()
-        logger.info("✅ Cache warming completed")
-    except Exception as e:
-        logger.warning(f"⚠️ Cache warming failed: {e}")
-    
-    # Initialize Redis database systems
-    try:
-        from .utils.redis_database import redis_db
-        from .utils.redis_session_manager import redis_session_manager
-        from .utils.redis_realtime import ws_manager
-        from .utils.redis_config import monitoring, backup_manager
-        
-        if redis_db.enabled:
-            logger.info("✅ Redis database system initialized")
-            
-            # Start monitoring if available
-            if monitoring:
-                logger.info("✅ Redis monitoring started")
-            
-            # Initialize session cleanup
-            if redis_session_manager:
-                logger.info("✅ Redis session manager initialized")
-                
-            # Initialize WebSocket manager
-            if ws_manager:
-                logger.info("✅ Redis WebSocket manager initialized")
-                
-        else:
-            logger.info("⚠️ Redis database system not available - using fallback modes")
-            
-    except Exception as e:
-        logger.warning(f"⚠️ Redis initialization failed: {e}")
     
     logger.info("✅ Peak performance application startup complete")
     yield
@@ -168,7 +131,6 @@ def create_app() -> FastAPI:
     app.include_router(roles.router)
     app.include_router(stripe_payments.router)
     app.include_router(peak_performance.router)  # Advanced performance endpoints
-    app.include_router(redis_admin.router)  # Redis administration dashboard
     
     # Setup static file serving with image caching
     try:
@@ -194,11 +156,7 @@ def create_app() -> FastAPI:
     # Add peak performance root endpoint
     @app.get("/", summary="Peak Performance API Status")
     async def root():
-        from .utils.redis_cache import cache
         from .utils.celery_background_tasks import task_manager
-        from .utils.redis_database import redis_db
-        from .utils.redis_session_manager import redis_session_manager
-        from .utils.redis_realtime import ws_manager
         
         return {
             "message": "Peak Performance Rental Management API",
@@ -208,10 +166,7 @@ def create_app() -> FastAPI:
                 "database_pooling": True,
                 "query_optimization": True,
                 "background_tasks": True,
-                "redis_caching": cache.enabled,
-                "redis_database": redis_db.enabled,
-                "redis_sessions": redis_session_manager is not None,
-                "redis_realtime": ws_manager is not None,
+                "image_caching": True,
                 "celery_workers": task_manager.enabled,
                 "response_compression": True,
                 "rate_limiting": True,
@@ -220,18 +175,14 @@ def create_app() -> FastAPI:
             },
             "performance_grade": "A++",
             "estimated_concurrent_users": "1000+",
-            "redis_features": {
-                "multi_layer_caching": cache.enabled,
-                "session_management": redis_session_manager is not None,
-                "real_time_updates": ws_manager is not None,
-                "query_caching": redis_db.enabled,
-                "distributed_locking": redis_db.enabled,
-                "pub_sub_messaging": redis_db.enabled
+            "image_features": {
+                "optimization": True,
+                "webp_conversion": True,
+                "responsive_variants": True,
+                "static_caching": True
             },
             "endpoints": {
-                "redis_admin": "/redis/health",
-                "performance": "/performance/health",
-                "cache_stats": "/redis/cache/stats", 
+                "performance": "/performance/health", 
                 "real_time_stats": "/redis/realtime/stats",
                 "backup_management": "/redis/backup/list"
             }
@@ -247,11 +198,7 @@ app = create_app()
 async def validate_peak_optimizations():
     """Validate peak performance optimization features."""
     from .database_optimized import db_manager
-    from .utils.redis_cache import cache
     from .utils.celery_background_tasks import task_manager
-    from .utils.redis_database import redis_db
-    from .utils.redis_session_manager import redis_session_manager
-    from .utils.redis_config import monitoring
     
     logger.info("🔍 Validating peak performance optimizations...")
     
@@ -259,31 +206,10 @@ async def validate_peak_optimizations():
     pool_info = db_manager.get_connection_info()
     logger.info(f"  Database pool: {pool_info}")
     
-    # Check Redis cache
-    cache_stats = cache.get_stats()
-    logger.info(f"  Redis cache: {'✅ Enabled' if cache.enabled else '⚠️ Disabled'}")
+    # Check image caching
+    logger.info(f"  Image caching: ✅ Enabled")
     
-    # Check Redis database system
-    if redis_db.enabled:
-        health = redis_db.health_check()
-        logger.info(f"  Redis database: ✅ {health.get('status', 'unknown')}")
-    else:
-        logger.info("  Redis database: ⚠️ Disabled")
-    
-    # Check session management
-    if redis_session_manager:
-        session_stats = redis_session_manager.get_session_stats()
-        logger.info(f"  Session management: ✅ Active (hit rate: {session_stats.get('cache_hit_rate', 'N/A')})")
-    else:
-        logger.info("  Session management: ⚠️ Not available")
-    
-    # Check monitoring
-    if monitoring:
-        logger.info("  Redis monitoring: ✅ Active")
-    else:
-        logger.info("  Redis monitoring: ⚠️ Not available")
-    
-    # Check Celery workers
+    # Check background tasks
     task_stats = task_manager.get_queue_stats()
     logger.info(f"  Celery workers: {'✅ Online' if task_manager.enabled else '📋 Thread pool fallback'}")
     
@@ -296,7 +222,7 @@ async def validate_peak_optimizations():
     optimizations_count = sum([
         1,  # Database pooling (always enabled)
         1,  # Query optimization (always enabled)
-        1 if cache.enabled else 0,
+        1,  # Image caching (always enabled)
         1 if task_manager.enabled else 0,
         1,  # Response compression (always enabled)
         1,  # Rate limiting (always enabled)

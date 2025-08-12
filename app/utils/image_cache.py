@@ -23,13 +23,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-try:
-    from .redis_cache import cache
-    REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
-    cache = None
-
 logger = logging.getLogger(__name__)
 
 class ImageCacheManager:
@@ -151,11 +144,6 @@ class ImageCacheManager:
             async with aiofiles.open(cached_path, 'wb') as f:
                 await f.write(optimized_data)
             
-            # Cache in Redis if available
-            if REDIS_AVAILABLE and cache:
-                redis_key = f"image_cache:{cache_key}"
-                await cache.set_binary(redis_key, optimized_data, ttl=self.cache_ttl)
-            
             logger.info(f"Cached image: {cache_key} ({len(optimized_data)} bytes)")
             return str(cached_path)
             
@@ -167,13 +155,6 @@ class ImageCacheManager:
                               height: Optional[int] = None, format: str = "webp") -> Optional[bytes]:
         """Get cached image data"""
         cache_key = self.get_cache_key(image_path, width, height, format)
-        
-        # Try Redis cache first
-        if REDIS_AVAILABLE and cache:
-            redis_key = f"image_cache:{cache_key}"
-            cached_data = await cache.get_binary(redis_key)
-            if cached_data:
-                return cached_data
         
         # Try file cache
         cached_path = self.get_cached_path(cache_key, format)

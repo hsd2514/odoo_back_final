@@ -16,8 +16,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp
 
-from ..utils.redis_cache import cache, RateLimiter
-
 logger = logging.getLogger(__name__)
 
 class CompressionMiddleware(BaseHTTPMiddleware):
@@ -76,24 +74,7 @@ class ResponseOptimizationMiddleware(BaseHTTPMiddleware):
         endpoint = str(request.url.path)
         cache_ttl = self.cacheable_endpoints.get(endpoint)
         
-        if cache_ttl and request.method == "GET":
-            # Generate cache key from URL and query params
-            cache_key = f"response:{endpoint}:{str(request.query_params)}"
-            
-            # Try to get cached response
-            cached_response = cache.get(cache_key)
-            if cached_response:
-                # Return cached response with cache headers
-                return JSONResponse(
-                    content=cached_response,
-                    headers={
-                        "X-Cache": "HIT",
-                        "Cache-Control": f"public, max-age={cache_ttl}",
-                        "X-Response-Time": f"{(time.time() - start_time) * 1000:.2f}ms"
-                    }
-                )
-        
-        # Process request
+        # Cache disabled - process request directly
         response = await call_next(request)
         processing_time = (time.time() - start_time) * 1000
         
@@ -101,21 +82,8 @@ class ResponseOptimizationMiddleware(BaseHTTPMiddleware):
         response.headers["X-Response-Time"] = f"{processing_time:.2f}ms"
         
         # Cache successful GET responses
-        if (cache_ttl and request.method == "GET" and 
-            response.status_code == 200 and 
-            hasattr(response, 'body')):
-            
-            try:
-                # Parse and cache response body
-                body_str = response.body.decode() if isinstance(response.body, bytes) else str(response.body)
-                response_data = json.loads(body_str)
-                
-                cache.set(cache_key, response_data, cache_ttl)
-                response.headers["X-Cache"] = "MISS"
-                response.headers["Cache-Control"] = f"public, max-age={cache_ttl}"
-                
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                pass
+        # Cache disabled - add standard performance headers
+        response.headers["X-Cache"] = "DISABLED"
         
         return response
 
@@ -131,7 +99,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.calls_per_minute = calls_per_minute
         self.burst_limit = burst_limit
-        self.rate_limiter = RateLimiter()
+        # Rate limiting disabled (Redis removed)
+        self.rate_limiting_enabled = False
     
     async def dispatch(self, request: Request, call_next):
         # Get client identifier
@@ -139,28 +108,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         user_agent = request.headers.get("user-agent", "unknown")
         identifier = f"{client_ip}:{hash(user_agent)}"
         
-        # Check rate limit
-        if not self.rate_limiter.check_rate_limit(
-            identifier,
-            limit=self.calls_per_minute,
-            window=60  # 1 minute window
-        ):
-            return JSONResponse(
-                status_code=429,
-                content={
-                    "error": "Rate limit exceeded",
-                    "limit": self.calls_per_minute,
-                    "window": "1 minute",
-                    "retry_after": 60
-                },
-                headers={
-                    "Retry-After": "60",
-                    "X-RateLimit-Limit": str(self.calls_per_minute),
-                    "X-RateLimit-Remaining": "0"
-                }
-            )
+        # Rate limiting disabled - process request directly
+        response = await call_next(request)
         
-        return await call_next(request)
+        return response
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Security headers middleware"""

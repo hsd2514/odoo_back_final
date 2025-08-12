@@ -17,7 +17,6 @@ from ..models.catalog import Product, Category
 from ..models.inventory import InventoryItem
 from ..models.rentals import RentalOrder, RentalItem
 from ..models.user import User
-from .redis_cache import cache, cached, ProductCache, InventoryCache
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +156,6 @@ class AdvancedQueryOptimizer:
             db.rollback()
             return False
     
-    @cached(ttl=600, key_prefix="optimized")
     def get_product_catalog_optimized(
         self, 
         category_id: Optional[int] = None,
@@ -228,7 +226,6 @@ class AdvancedQueryOptimizer:
                 "execution_time": execution_time
             }
     
-    @cached(ttl=300, key_prefix="availability")
     def get_product_availability_optimized(
         self,
         product_id: int,
@@ -275,13 +272,9 @@ class AdvancedQueryOptimizer:
                 "execution_time": execution_time
             }
             
-            # Cache in Redis for quick access
-            date_range = f"{start_date.isoformat()}_{end_date.isoformat()}"
-            InventoryCache.set_availability(product_id, date_range, result)
             
             return result
     
-    @cached(ttl=1800, key_prefix="analytics")
     def get_rental_analytics_optimized(
         self,
         seller_id: Optional[int] = None,
@@ -422,10 +415,6 @@ class BulkOperations:
             
             result = db.execute(sql)
             db.commit()
-            
-            # Invalidate cache
-            for item_id, _ in updates:
-                InventoryCache.invalidate_inventory(item_id)
             
             return result.rowcount
             
