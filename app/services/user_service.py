@@ -31,3 +31,19 @@ def get_user_by_email(db: Session, *, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
 
+def update_user_password(db: Session, *, user_id: int, new_password: str) -> bool:
+    """Update user password by user ID"""
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return False
+        
+        # Hash the new password and update
+        user.password_hash = hash_password(new_password)
+        db.commit()
+        return True
+    except Exception:
+        db.rollback()
+        return False
+
+

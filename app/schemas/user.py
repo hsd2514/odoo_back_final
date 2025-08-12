@@ -48,5 +48,26 @@ class UserRead(UserBase):
     created_at: datetime
 
 
+class ForgotPasswordRequest(BaseSchema):
+    email: EmailStr = Field(..., description="Email address to send reset link to")
+
+
+class ResetPasswordRequest(BaseSchema):
+    token: str = Field(..., description="Password reset token received via email")
+    new_password: str = Field(..., min_length=6, description="New password (minimum 6 characters)")
+    confirm_password: str = Field(..., description="Confirm new password (must match new_password)")
+    
+    @validator('confirm_password')
+    def passwords_match(cls, v, values, **kwargs):
+        if 'new_password' in values and v != values['new_password']:
+            raise ValueError('Passwords do not match')
+        return v
+
+
+class PasswordResetResponse(BaseSchema):
+    message: str
+    success: bool = True
+
+
 
 

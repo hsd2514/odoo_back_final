@@ -4,11 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..schemas.user import UserCreate, UserLogin, UserRead, UserResponse
+from ..schemas.user import (
+    UserCreate, UserLogin, UserRead, UserResponse,
+    ForgotPasswordRequest, ResetPasswordRequest, PasswordResetResponse
+)
 from ..utils.auth import get_current_user
 from ..models.user import Role, UserRole
-from ..services.user_service import create_user, get_user_by_email, verify_password
-from ..utils.jwt import create_access_token
+from ..services.user_service import create_user, get_user_by_email, verify_password, update_user_password
+from ..utils.jwt import create_access_token, create_password_reset_token, verify_password_reset_token
+from ..utils.email import email_service
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -152,6 +156,115 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
         full_name=user.full_name,
         access_token=access_token,
         token_type="bearer"
+    )
+
+
+@router.post("/forgot-password",
+             response_model=PasswordResetResponse,
+             status_code=status.HTTP_200_OK,
+             summary="Request password reset",
+             description="Send password reset email to user's registered email address")
+async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Request password reset email.
+    
+    This endpoint accepts an email address and sends a password reset link
+    to that email if the user exists in the system. For security reasons,
+    it returns success even if the email doesn't exist in the database.
+    
+    Args:
+        request (ForgotPasswordRequest): Contains the email address
+        
+    Returns:
+        PasswordResetResponse: Success message
+        
+    Example:
+        POST /users/forgot-password
+        {
+            "email": "user@example.com"
+        }
+    """
+    # Check if user exists
+    user = get_user_by_email(db, email=request.email)
+    
+    if user:
+        # Generate password reset token
+        reset_token = create_password_reset_token(request.email)
+        
+        # Send email (in production, you might want to queue this)
+        email_sent = email_service.send_password_reset_email(
+            email=request.email,
+            reset_token=reset_token,
+            user_name=user.full_name or ""
+        )
+        
+        if not email_sent:
+            # Log the error but don't expose it to the user for security
+            print(f"Failed to send password reset email to {request.email}")
+    
+    # Always return success for security (don't reveal if email exists)
+    return PasswordResetResponse(
+        message="If the email address is registered with us, you will receive a password reset link shortly.",
+        success=True
+    )
+
+
+@router.post("/reset-password",
+             response_model=PasswordResetResponse,
+             status_code=status.HTTP_200_OK,
+             summary="Reset password with token",
+             description="Reset user password using the token received via email")
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Reset password using reset token.
+    
+    This endpoint accepts a password reset token (received via email) and
+    a new password to update the user's password.
+    
+    Args:
+        request (ResetPasswordRequest): Contains token and new password
+        
+    Returns:
+        PasswordResetResponse: Success or error message
+        
+    Raises:
+        HTTPException: If token is invalid or expired
+        
+    Example:
+        POST /users/reset-password
+        {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "new_password": "newsecurepassword123",
+            "confirm_password": "newsecurepassword123"
+        }
+    """
+    # Verify the reset token
+    email = verify_password_reset_token(request.token)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token. Please request a new password reset."
+        )
+    
+    # Get user by email
+    user = get_user_by_email(db, email=email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. The account may have been deleted."
+        )
+    
+    # Update user password
+    success = update_user_password(db, user_id=user.id, new_password=request.new_password)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update password. Please try again."
+        )
+    
+    return PasswordResetResponse(
+        message="Password reset successful. You can now login with your new password.",
+        success=True
     )
 
 
