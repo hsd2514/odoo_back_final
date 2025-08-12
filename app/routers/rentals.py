@@ -74,12 +74,26 @@ async def list_orders(
     q: str | None = None,
     page: int = 1,
     limit: int = 20,
+    customer_id: int | None = None,
+    seller_id: int | None = None,
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles("Admin", "Seller")),
+    current=Depends(get_current_user),
 ):
+    # Authorization rules:
+    # - Admin/Seller can view all
+    # - Otherwise, only allow when requesting own customer orders
+    if not user_has_any_role(db, current.user_id, ["Admin", "Seller"]):
+        if customer_id is None or int(customer_id) != int(current.user_id):
+            # deny access for non-admin/seller when not querying own orders
+            from fastapi import HTTPException, status as http_status
+            raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
     query = db.query(RentalOrder)
     if status:
         query = query.filter(RentalOrder.status == status)
+    if customer_id is not None:
+        query = query.filter(RentalOrder.customer_id == customer_id)
+    if seller_id is not None:
+        query = query.filter(RentalOrder.seller_id == seller_id)
     if q:
         # naive search on customer/seller ids or id
         if q.isdigit():
